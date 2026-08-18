@@ -812,7 +812,7 @@ def load_sheet_target(config_path: Path) -> dict[str, str]:
         "credentials_path": config["credentials_path"],
         "spreadsheet_name": config["spreadsheet_name"],
         "worksheet_name": config.get("worksheet_name", "ERP_MERGED"),
-        "worksheet_mode": config.get("worksheet_mode", "new_sheet_per_upload"),
+        "worksheet_mode": config.get("worksheet_mode", "overwrite"),
         "latest_worksheet_name": config.get("latest_worksheet_name", "DASHBOARD_LATEST"),
         "upload_info_worksheet_name": config.get("upload_info_worksheet_name", "DASHBOARD_UPLOAD_INFO"),
         "history_worksheet_name": config.get("history_worksheet_name", "DASHBOARD_SYNC_HISTORY"),
