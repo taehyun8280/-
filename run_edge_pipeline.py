@@ -861,11 +861,25 @@ def get_or_create_worksheet(spreadsheet, title: str, row_count: int, col_count: 
         worksheet.clear()
         return worksheet
     except gspread.WorksheetNotFound:
-        return spreadsheet.add_worksheet(
-            title=title,
-            rows=str(max(row_count + 10, 1000)),
-            cols=str(col_count + 5),
-        )
+        try:
+            return spreadsheet.add_worksheet(
+                title=title,
+                rows=str(max(row_count + 10, 1000)),
+                cols=str(col_count + 5),
+            )
+        except Exception:
+            reusable_prefixes = ("엣지_", "보링_", "grd_List_", "grd_list_")
+            reusable = [
+                ws
+                for ws in spreadsheet.worksheets()
+                if str(ws.title).startswith(reusable_prefixes)
+            ]
+            if not reusable:
+                raise
+            worksheet = reusable[0]
+            worksheet.clear()
+            worksheet.update_title(title)
+            return worksheet
 
 
 def write_dataframe_to_worksheet(worksheet, result_df: pd.DataFrame) -> None:
