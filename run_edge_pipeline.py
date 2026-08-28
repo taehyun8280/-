@@ -889,6 +889,16 @@ def write_dataframe_to_worksheet(worksheet, result_df: pd.DataFrame) -> None:
             serializable_df[column] = serializable_df[column].dt.strftime("%Y-%m-%d %H:%M:%S").fillna("")
     serializable_df = serializable_df.where(pd.notna(serializable_df), "")
     records: list[list[object]] = [serializable_df.columns.tolist(), *serializable_df.values.tolist()]
+    target_rows = max(len(records), 2)
+    target_cols = max(len(serializable_df.columns), 1)
+    current_rows = getattr(worksheet, "row_count", target_rows)
+    current_cols = getattr(worksheet, "col_count", target_cols)
+    if target_cols < current_cols:
+        worksheet.resize(rows=current_rows, cols=target_cols)
+        current_cols = target_cols
+    if target_rows != current_rows or target_cols != current_cols:
+        worksheet.resize(rows=target_rows, cols=target_cols)
+    worksheet.clear()
     worksheet.update(records, "A1", value_input_option="USER_ENTERED")
 
 
