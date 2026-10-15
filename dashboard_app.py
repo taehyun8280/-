@@ -12,6 +12,8 @@ import json
 
 import math
 
+import re
+
 from pathlib import Path
 
 from typing import Any
@@ -85,6 +87,105 @@ VERTICAL_1_2_3_30000_MACHINES = {"수직 #1", "수직 #2", "수직 #3"}
 
 
 COMPLETION_HISTORY_FALLBACK_ROWS = [
+    {
+        "교체완료시각": "2026-07-23 09:11:41",
+        "설비": "런닝 #23",
+        "날물명": "Φ20 날물",
+        "기준값": "30,000 회",
+        "교체 시점 사용량": "10,506 회",
+        "담당자": "이지현",
+        "비고": "날물 이상으로 교체",
+    },
+    {
+        "교체완료시각": "2026-07-21 08:40:10",
+        "설비": "런닝 #20",
+        "날물명": "Φ5(관통) 날물",
+        "기준값": "100,000 회",
+        "교체 시점 사용량": "98,942 회",
+        "담당자": "정영훈",
+        "비고": "날물 이상으로 교체",
+    },
+    {
+        "교체완료시각": "2026-07-16 15:08:45",
+        "설비": "런닝 #24",
+        "날물명": "Φ35 날물",
+        "기준값": "10,000 회",
+        "교체 시점 사용량": "1,404 회",
+        "담당자": "이지현",
+        "비고": "날물 이상으로 교체",
+    },
+    {
+        "교체완료시각": "2026-07-16 15:07:04",
+        "설비": "런닝 #24",
+        "날물명": "Φ20 날물",
+        "기준값": "30,000 회",
+        "교체 시점 사용량": "10,774 회",
+        "담당자": "이지현",
+        "비고": "날물 이상으로 교체",
+    },
+    {
+        "교체완료시각": "2026-07-15 19:41:04",
+        "설비": "런닝 #23",
+        "날물명": "Φ35 날물",
+        "기준값": "10,000 회",
+        "교체 시점 사용량": "692 회",
+        "담당자": "이지현",
+        "비고": "날물 이상으로 교체",
+    },
+    {
+        "교체완료시각": "2026-07-15 19:40:19",
+        "설비": "런닝 #23",
+        "날물명": "Φ20 날물",
+        "기준값": "30,000 회",
+        "교체 시점 사용량": "8,367 회",
+        "담당자": "이지현",
+        "비고": "날물 이상으로 교체",
+    },
+    {
+        "교체완료시각": "2026-07-15 19:39:36",
+        "설비": "런닝 #23",
+        "날물명": "Φ8(관통) 날물",
+        "기준값": "30,000 회",
+        "교체 시점 사용량": "33,637 회",
+        "담당자": "이지현",
+        "비고": "",
+    },
+    {
+        "교체완료시각": "2026-07-11 16:39:34",
+        "설비": "엣지 #1",
+        "날물명": "AT 날물(후면)",
+        "기준값": "15,000m",
+        "교체 시점 사용량": "4,367m",
+        "담당자": "다낭",
+        "비고": "날물 이상으로 교체",
+    },
+    {
+        "교체완료시각": "2026-07-11 03:03:56",
+        "설비": "엣지 #6",
+        "날물명": "AT 날물(후면)",
+        "기준값": "75,000m",
+        "교체 시점 사용량": "16,246m",
+        "담당자": "박철웅",
+        "비고": "날물 이상으로 교체",
+    },
+    {
+        "교체완료시각": "2026-07-11 03:02:04",
+        "설비": "엣지 #6",
+        "날물명": "AT 날물(전면)",
+        "기준값": "75,000m",
+        "교체 시점 사용량": "16,479m",
+        "담당자": "박철웅",
+        "비고": "날물 이상으로 교체",
+    },
+    {
+        "교체완료시각": "2026-07-09 17:03:11",
+        "설비": "수직 #2",
+        "날물명": "Φ20 날물",
+        "기준값": "10,000 회",
+        "교체 시점 사용량": "8,440 회",
+        "담당자": "김수진",
+        "비고": "날물 이상으로 교체",
+    },
     {
         "교체완료시각": "2026-07-08 17:20:01",
         "설비": "런닝 #21",
@@ -690,6 +791,8 @@ BORING_MACHINE_CONFIG = [
 
     {"line": "포인트", "machine": "포인트 #3", "installDate": "2026-02-28", "actionStep": ""},
 
+    {"line": "양면", "machine": "신규 #14", "installDate": "", "avg7d": 0},
+
     {"line": "양면", "machine": "양면 #26", "installDate": "2026-03-03"},
 
     {"line": "양면", "machine": "양면 #27", "installDate": "2026-03-05"},
@@ -858,7 +961,7 @@ def build_initial_raw_data() -> list[dict[str, Any]]:
 
                 "standard": standard,
 
-                "avg7d": blade_spec["avg7d"],
+                "avg7d": machine_config.get("avg7d", blade_spec["avg7d"]),
 
                 "quality": blade_spec["quality"],
 
@@ -1227,6 +1330,8 @@ MACHINE_GROUPS = {
 
         "포인트 #3",
 
+        "신규 #14",
+
         "양면 #26",
 
         "양면 #27",
@@ -1327,7 +1432,7 @@ LINE_MACHINE_OPTIONS = {
 
     "런닝": ["런닝 #19", "런닝 #20", "런닝 #21", "런닝 #22", "런닝 #23", "런닝 #24"],
 
-    "양면": ["양면 #26", "양면 #27"],
+    "양면": ["신규 #14", "양면 #26", "양면 #27"],
 
     "포인트": ["포인트 #3"],
 
@@ -1607,7 +1712,7 @@ def get_history_blade_list(machine: str, rows: list[dict[str, Any]] | None = Non
 
     normalized_machine = normalize_machine_name(machine)
 
-    if normalized_machine.startswith(("수직", "양면", "포인트", "런닝")):
+    if normalized_machine.startswith(("수직", "양면", "신규", "포인트", "런닝")):
 
         return [
 
@@ -1815,29 +1920,21 @@ def load_sheet_sync_history() -> list[dict[str, Any]]:
 
             if isinstance(data, list):
 
-                local_history = remove_duplicate_zero_history_rows(data)
+                normalized_history = remove_duplicate_zero_history_rows(data)
 
-                if history_path == SHEET_SYNC_HISTORY_PATH and local_history != data:
+                local_history = merge_sheet_sync_history(local_history, normalized_history)
 
-                    save_sheet_sync_history(local_history)
+                if history_path == SHEET_SYNC_HISTORY_PATH and normalized_history != data:
 
-                break
+                    save_sheet_sync_history(normalized_history)
 
         except Exception:
 
-            local_history = []
-
-    if local_history:
-
-        return local_history
+            continue
 
     remote_history = load_sheet_sync_history_from_sheet()
 
-    if remote_history:
-
-        return remove_duplicate_zero_history_rows(remote_history)
-
-    return []
+    return merge_sheet_sync_history(local_history, remote_history)
 
 
 
@@ -1881,9 +1978,37 @@ def save_sheet_sync_history(history: list[dict[str, Any]]) -> None:
 
     LOG_DIR.mkdir(parents=True, exist_ok=True)
 
-    normalized = remove_duplicate_zero_history_rows(history)
+    existing_history: list[dict[str, Any]] = []
+
+    for history_path in [SHEET_SYNC_HISTORY_PATH, SHEET_SYNC_HISTORY_SEED_PATH]:
+
+        if not history_path.exists():
+
+            continue
+
+        try:
+
+            data = json.loads(history_path.read_text(encoding="utf-8"))
+
+            if isinstance(data, list):
+
+                existing_history = merge_sheet_sync_history(existing_history, data)
+
+        except Exception:
+
+            continue
+
+    normalized = merge_sheet_sync_history(existing_history, history)
 
     SHEET_SYNC_HISTORY_PATH.write_text(json.dumps(normalized, ensure_ascii=False, indent=2), encoding="utf-8")
+
+    try:
+
+        SHEET_SYNC_HISTORY_SEED_PATH.write_text(json.dumps(normalized, ensure_ascii=False, indent=2), encoding="utf-8")
+
+    except Exception:
+
+        pass
 
     save_remote_sheet_sync_history(normalized)
 
@@ -1898,7 +2023,7 @@ def save_remote_sheet_sync_history(history: list[dict[str, Any]]) -> None:
 
     try:
 
-        normalized = remove_duplicate_zero_history_rows(history)
+        normalized = merge_sheet_sync_history(load_sheet_sync_history_from_sheet(), history)
 
         columns = ["반영시각", "대상", "설비", "날물명", "데이터 기준일자", "반영 사용량(m)", "반영 사용량(회)"]
 
@@ -1946,6 +2071,20 @@ def load_completion_history() -> list[dict[str, Any]]:
     deleted_keys = load_completion_history_deleted_keys()
     local_history: list[dict[str, Any]] = []
     archive_history: list[dict[str, Any]] = []
+    seed_history: list[dict[str, Any]] = []
+
+    seed_path = Path("completion_history_seed.json")
+    if seed_path.exists():
+
+        try:
+
+            seed_data = json.loads(seed_path.read_text(encoding="utf-8"))
+
+            seed_history = normalize_completion_history(seed_data if isinstance(seed_data, list) else [])
+
+        except Exception:
+
+            seed_history = []
 
     if COMPLETION_HISTORY_PATH.exists():
 
@@ -1973,6 +2112,7 @@ def load_completion_history() -> list[dict[str, Any]]:
 
     return merge_completion_history(
         filter_completion_history_by_keys(COMPLETION_HISTORY_FALLBACK_ROWS, deleted_keys),
+        filter_completion_history_by_keys(seed_history, deleted_keys),
         filter_completion_history_by_keys(archive_history, deleted_keys),
         filter_completion_history_by_keys(local_history, deleted_keys),
         filter_completion_history_by_keys(remote_history, deleted_keys),
@@ -2046,7 +2186,7 @@ def get_completion_standard_label(machine: Any, blade_name: Any) -> str:
         if standard:
             return f"{round(standard):,}m"
 
-    if normalized_machine.startswith(("수직", "포인트", "양면", "런닝")):
+    if normalized_machine.startswith(("수직", "포인트", "양면", "신규", "런닝")):
         standard = get_boring_standard(normalized_machine, normalized_blade)
         return f"{standard:,} 회"
 
@@ -3014,6 +3154,10 @@ def add_manual_completion_history(entry: dict[str, Any]) -> None:
     st.session_state.send_result = "교체완료 시점에 수동 이력을 추가하고 저장했습니다."
 
 
+SYNC_TIME_PATTERN = re.compile(r"^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$")
+SYNC_TIME_CACHE: dict[str, str] = {}
+
+
 def normalize_sheet_sync_history(history: list[dict[str, Any]]) -> list[dict[str, Any]]:
 
     blade_map = {
@@ -3033,6 +3177,15 @@ def normalize_sheet_sync_history(history: list[dict[str, Any]]) -> list[dict[str
 
     def canonicalize_sync_time(value: Any) -> str:
         raw = str(value or "").strip()
+        if SYNC_TIME_PATTERN.match(raw):
+            return raw
+        cached = SYNC_TIME_CACHE.get(raw)
+        if cached is None:
+            cached = parse_sync_time(raw)
+            SYNC_TIME_CACHE[raw] = cached
+        return cached
+
+    def parse_sync_time(raw: str) -> str:
         try:
             parsed = pd.to_datetime(raw, errors="coerce")
             if pd.isna(parsed):
@@ -3055,6 +3208,8 @@ def normalize_sheet_sync_history(history: list[dict[str, Any]]) -> list[dict[str
                 return f"수직 #{digits[:1]}"
             if "???" in raw_machine or "포인트" in raw_machine:
                 return "포인트 #3"
+            if digits == "14":
+                return "신규 #14"
             if digits in {"26", "27"}:
                 return f"양면 #{digits}"
             if digits in {"19", "20", "21", "22", "23", "24"}:
@@ -3100,7 +3255,7 @@ def normalize_sheet_sync_history(history: list[dict[str, Any]]) -> list[dict[str
         if not machine:
             continue
 
-        is_boring = machine.startswith(("수직", "포인트", "런닝", "양면"))
+        is_boring = machine.startswith(("수직", "포인트", "런닝", "양면", "신규"))
         is_edge = machine.startswith("엣지")
 
         if is_boring:
@@ -3297,7 +3452,7 @@ def normalize_last_sheet_sync_details(details: list[dict[str, Any]]) -> list[dic
 
 
 
-        is_boring = machine.startswith(("수직", "포인트", "런닝", "양면", "?섏쭅", "?ъ씤??", "?곕떇", "?묐㈃"))
+        is_boring = machine.startswith(("수직", "포인트", "런닝", "양면", "신규", "?섏쭅", "?ъ씤??", "?곕떇", "?묐㈃"))
 
         is_edge = machine.startswith(("엣지", "?ｌ?"))
 
@@ -3804,7 +3959,7 @@ def reconcile_boring_usage_from_history(data: list[dict[str, Any]], history: lis
 
             continue
 
-        if not machine.startswith(("\uc218\uc9c1", "\ud3ec\uc778\ud2b8", "\ub7f0\ub2dd", "\uc591\uba74")):
+        if not machine.startswith(("\uc218\uc9c1", "\ud3ec\uc778\ud2b8", "\ub7f0\ub2dd", "\uc591\uba74", "\uc2e0\uaddc")):
 
             continue
 
@@ -3842,7 +3997,7 @@ def reconcile_boring_usage_from_history(data: list[dict[str, Any]], history: lis
 
         machine = str(item.get("machine", "")).strip()
 
-        if not machine.startswith(("\uc218\uc9c1", "\ud3ec\uc778\ud2b8", "\ub7f0\ub2dd", "\uc591\uba74")):
+        if not machine.startswith(("\uc218\uc9c1", "\ud3ec\uc778\ud2b8", "\ub7f0\ub2dd", "\uc591\uba74", "\uc2e0\uaddc")):
 
             next_rows.append(item)
 
@@ -4084,6 +4239,8 @@ def normalize_machine_name(value: Any) -> str:
 
         "NC보링기#24": "런닝 #24",
 
+        "NC보링기#14": "신규 #14",
+
         "NC보링기#26(신규양면보링기)": "양면 #26",
 
         "NC보링기#27(신규양면보링기)": "양면 #27",
@@ -4113,6 +4270,10 @@ def normalize_machine_name(value: Any) -> str:
     if compact.startswith("NC보링기#3(") and "A동" not in compact:
 
         return "포인트 #3"
+
+    if re.match(r"^(?:NC보링기|양면|신규)#14(?:$|\D)", compact):
+
+        return "신규 #14"
 
     if compact.startswith("NC보링기#26"):
 
@@ -4162,6 +4323,10 @@ def normalize_machine_name(value: Any) -> str:
 
             return "포인트 #3"
 
+        if machine_no == "14":
+
+            return "신규 #14"
+
         if machine_no in {"26", "27"}:
 
             return f"양면 #{machine_no}"
@@ -4204,7 +4369,7 @@ def infer_line_from_machine(machine: str) -> str:
 
         return "런닝"
 
-    if normalized.startswith("양면"):
+    if normalized.startswith(("양면", "신규")):
 
         return "양면"
 
@@ -4950,7 +5115,7 @@ def get_boring_standard(machine: Any, blade_name: Any) -> int:
 
             return 100000
 
-        if normalized_machine.startswith(("양면", "수직")):
+        if normalized_machine.startswith(("양면", "신규", "수직")):
 
             return 50000
 
@@ -4996,6 +5161,9 @@ def build_boring_history_entries_from_dataframe(df: pd.DataFrame, sync_time: str
     for _, row in df.iterrows():
 
         machine = normalize_machine_name(row.get(machine_col, ""))
+
+        if machine == "신규 #14" and str(row.get("보링매크로상태", "")).startswith("미확인"):
+            continue
 
         if not is_boring_machine(machine):
 
@@ -5617,6 +5785,9 @@ def sync_from_google_sheet(
 
         machine = normalize_machine_name(row[machine_col]) if machine_col else target_machine
 
+        if machine == "신규 #14" and str(row.get("보링매크로상태", "")).startswith("미확인"):
+            continue
+
         parsed_usage = parse_numeric_value(row[usage_col]) if usage_col else 0.0
 
         parsed_quantity = parse_numeric_value(row[quantity_col]) if quantity_col else 0.0
@@ -5631,7 +5802,7 @@ def sync_from_google_sheet(
 
             continue
 
-        if machine.startswith(("수직", "포인트", "런닝", "양면")):
+        if machine.startswith(("수직", "포인트", "런닝", "양면", "신규")):
 
             boring_blade_records = []
 
@@ -5845,7 +6016,7 @@ def sync_from_google_sheet(
 
     edge_count = sum(1 for machine in grouped_machines if machine.startswith("엣지"))
 
-    boring_count = sum(1 for machine in grouped_machines if machine.startswith(("수직", "포인트", "런닝", "양면")))
+    boring_count = sum(1 for machine in grouped_machines if machine.startswith(("수직", "포인트", "런닝", "양면", "신규")))
 
     if target_machine == "auto":
 
@@ -5901,7 +6072,7 @@ def sync_from_google_sheet(
 
                 "usage_m": round(payload["total"], 3) if machine.startswith("엣지") else "",
 
-                "usage_count": round(payload["usage_count"], 3) if machine.startswith(("수직", "포인트", "런닝", "양면")) else "",
+                "usage_count": round(payload["usage_count"], 3) if machine.startswith(("수직", "포인트", "런닝", "양면", "신규")) else "",
 
                 "start_date": start_date or "-",
 
@@ -6007,7 +6178,10 @@ def sync_from_google_sheet(
 
     if history_entries and (not is_duplicate_sync or should_replace_boring_history):
 
-        previous_history = st.session_state.get("sheet_sync_history", [])
+        previous_history = merge_sheet_sync_history(
+            load_sheet_sync_history(),
+            st.session_state.get("sheet_sync_history", []),
+        )
 
         if should_replace_boring_history:
 
@@ -6919,9 +7093,11 @@ def main() -> None:
 
     # edge and boring so previous days' history does not get rebuilt away.
 
-    effective_history = normalize_sheet_sync_history(
+    effective_history = merge_sheet_sync_history(
 
-        st.session_state.get("sheet_sync_history", [])
+        load_sheet_sync_history(),
+
+        st.session_state.get("sheet_sync_history", []),
 
     )
 
@@ -7382,6 +7558,9 @@ def main() -> None:
 
             if not completion_df.empty:
 
+                completion_df = completion_df.reset_index(drop=True)
+                completion_df.insert(0, "번호", range(1, len(completion_df) + 1))
+
                 editable_completion_df = format_sync_display_dataframe(completion_df)
 
                 editable_completion_df["_history_key"] = completion_df.apply(
@@ -7442,7 +7621,9 @@ def main() -> None:
 
                         hide_index=True,
 
-                        disabled=["_history_key"],
+                        column_order=["번호", *editable_columns, "_history_key"],
+
+                        disabled=["번호", "_history_key"],
 
                         column_config={"_history_key": None},
 
