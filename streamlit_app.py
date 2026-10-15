@@ -2386,13 +2386,9 @@ def get_secrets_gspread_client():
 
     # Streamlit Cloud에는 인증키 파일이 없으므로 Secrets의 gcp_service_account를 사용한다.
 
-    try:
+    # 실패는 캐시하지 않도록 예외를 그대로 올린다(Secrets를 나중에 넣어도 바로 연결되게).
 
-        info = dict(st.secrets["gcp_service_account"])
-
-    except Exception:
-
-        return None
+    info = dict(st.secrets["gcp_service_account"])
 
     return gspread.service_account_from_dict(info)
 
@@ -2425,10 +2421,6 @@ def get_google_spreadsheet():
         else:
 
             client = get_secrets_gspread_client()
-
-            if client is None:
-
-                return None
 
         return client.open(spreadsheet_name)
 
