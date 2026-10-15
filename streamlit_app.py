@@ -12,6 +12,8 @@ import json
 
 import math
 
+import re
+
 from pathlib import Path
 
 from typing import Any
@@ -789,6 +791,8 @@ BORING_MACHINE_CONFIG = [
 
     {"line": "포인트", "machine": "포인트 #3", "installDate": "2026-02-28", "actionStep": ""},
 
+    {"line": "양면", "machine": "양면 #14", "installDate": "", "avg7d": 0},
+
     {"line": "양면", "machine": "양면 #26", "installDate": "2026-03-03"},
 
     {"line": "양면", "machine": "양면 #27", "installDate": "2026-03-05"},
@@ -957,7 +961,7 @@ def build_initial_raw_data() -> list[dict[str, Any]]:
 
                 "standard": standard,
 
-                "avg7d": blade_spec["avg7d"],
+                "avg7d": machine_config.get("avg7d", blade_spec["avg7d"]),
 
                 "quality": blade_spec["quality"],
 
@@ -1326,6 +1330,8 @@ MACHINE_GROUPS = {
 
         "포인트 #3",
 
+        "양면 #14",
+
         "양면 #26",
 
         "양면 #27",
@@ -1426,7 +1432,7 @@ LINE_MACHINE_OPTIONS = {
 
     "런닝": ["런닝 #19", "런닝 #20", "런닝 #21", "런닝 #22", "런닝 #23", "런닝 #24"],
 
-    "양면": ["양면 #26", "양면 #27"],
+    "양면": ["양면 #14", "양면 #26", "양면 #27"],
 
     "포인트": ["포인트 #3"],
 
@@ -3189,7 +3195,7 @@ def normalize_sheet_sync_history(history: list[dict[str, Any]]) -> list[dict[str
                 return f"수직 #{digits[:1]}"
             if "???" in raw_machine or "포인트" in raw_machine:
                 return "포인트 #3"
-            if digits in {"26", "27"}:
+            if digits in {"14", "26", "27"}:
                 return f"양면 #{digits}"
             if digits in {"19", "20", "21", "22", "23", "24"}:
                 return f"런닝 #{digits}"
@@ -4218,6 +4224,8 @@ def normalize_machine_name(value: Any) -> str:
 
         "NC보링기#24": "런닝 #24",
 
+        "NC보링기#14": "양면 #14",
+
         "NC보링기#26(신규양면보링기)": "양면 #26",
 
         "NC보링기#27(신규양면보링기)": "양면 #27",
@@ -4247,6 +4255,10 @@ def normalize_machine_name(value: Any) -> str:
     if compact.startswith("NC보링기#3(") and "A동" not in compact:
 
         return "포인트 #3"
+
+    if re.match(r"^(?:NC보링기|양면)#14(?:$|\D)", compact):
+
+        return "양면 #14"
 
     if compact.startswith("NC보링기#26"):
 
@@ -4296,7 +4308,7 @@ def normalize_machine_name(value: Any) -> str:
 
             return "포인트 #3"
 
-        if machine_no in {"26", "27"}:
+        if machine_no in {"14", "26", "27"}:
 
             return f"양면 #{machine_no}"
 
@@ -5131,6 +5143,9 @@ def build_boring_history_entries_from_dataframe(df: pd.DataFrame, sync_time: str
 
         machine = normalize_machine_name(row.get(machine_col, ""))
 
+        if machine == "양면 #14" and str(row.get("보링매크로상태", "")).startswith("미확인"):
+            continue
+
         if not is_boring_machine(machine):
 
             continue
@@ -5750,6 +5765,9 @@ def sync_from_google_sheet(
     for _, row in df.iterrows():
 
         machine = normalize_machine_name(row[machine_col]) if machine_col else target_machine
+
+        if machine == "양면 #14" and str(row.get("보링매크로상태", "")).startswith("미확인"):
+            continue
 
         parsed_usage = parse_numeric_value(row[usage_col]) if usage_col else 0.0
 
