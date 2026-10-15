@@ -3154,6 +3154,10 @@ def add_manual_completion_history(entry: dict[str, Any]) -> None:
     st.session_state.send_result = "교체완료 시점에 수동 이력을 추가하고 저장했습니다."
 
 
+SYNC_TIME_PATTERN = re.compile(r"^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$")
+SYNC_TIME_CACHE: dict[str, str] = {}
+
+
 def normalize_sheet_sync_history(history: list[dict[str, Any]]) -> list[dict[str, Any]]:
 
     blade_map = {
@@ -3173,6 +3177,15 @@ def normalize_sheet_sync_history(history: list[dict[str, Any]]) -> list[dict[str
 
     def canonicalize_sync_time(value: Any) -> str:
         raw = str(value or "").strip()
+        if SYNC_TIME_PATTERN.match(raw):
+            return raw
+        cached = SYNC_TIME_CACHE.get(raw)
+        if cached is None:
+            cached = parse_sync_time(raw)
+            SYNC_TIME_CACHE[raw] = cached
+        return cached
+
+    def parse_sync_time(raw: str) -> str:
         try:
             parsed = pd.to_datetime(raw, errors="coerce")
             if pd.isna(parsed):
