@@ -2381,6 +2381,25 @@ def load_sheet_config() -> dict[str, str]:
 
 
 
+@st.cache_resource(show_spinner=False)
+def get_secrets_gspread_client():
+
+    # Streamlit Cloud에는 인증키 파일이 없으므로 Secrets의 gcp_service_account를 사용한다.
+
+    try:
+
+        info = dict(st.secrets["gcp_service_account"])
+
+    except Exception:
+
+        return None
+
+    return gspread.service_account_from_dict(info)
+
+
+
+
+
 def get_google_spreadsheet():
 
     if gspread is None:
@@ -2393,17 +2412,23 @@ def get_google_spreadsheet():
 
     credentials_path = Path(str(config.get("credentials_path", "")).strip())
 
-    if not credentials_path.exists():
+    if not credentials_path.is_file():
 
         credentials_path = WORK_DIR / "google-service-account.json"
 
-    if not credentials_path.exists():
-
-        return None
-
     try:
 
-        client = gspread.service_account(filename=str(credentials_path))
+        if credentials_path.is_file():
+
+            client = gspread.service_account(filename=str(credentials_path))
+
+        else:
+
+            client = get_secrets_gspread_client()
+
+            if client is None:
+
+                return None
 
         return client.open(spreadsheet_name)
 
