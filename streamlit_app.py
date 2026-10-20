@@ -7836,7 +7836,7 @@ def main() -> None:
 
 
 WEEKDAY_LABELS = ["월", "화", "수", "목", "금", "토", "일"]
-DAILY_WORK_PERIODS = {"최근 7일": 7, "최근 14일": 14, "최근 30일": 30, "전체": None}
+DAILY_WORK_PERIODS = {"최근 7일": 7, "최근 14일": 14, "전체": None}
 
 
 def build_daily_work_frames(history: list[dict[str, Any]]) -> tuple[pd.DataFrame, pd.DataFrame]:
