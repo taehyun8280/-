@@ -7810,6 +7810,9 @@ def main() -> None:
 
     with right:
 
+        if st.button("📊 날짜별 작업현황 보기", use_container_width=True, key="open_daily_work"):
+            show_daily_work_dialog(st.session_state.get("sheet_sync_history", []))
+
         st.subheader("교체 우선순위 TOP 5")
 
         for index, row in enumerate(top_priority, start=1):
@@ -7830,6 +7833,100 @@ def main() -> None:
 
 
 
+
+
+WEEKDAY_LABELS = ["월", "화", "수", "목", "금", "토", "일"]
+DAILY_WORK_PERIODS = {"최근 7일": 7, "최근 14일": 14, "최근 30일": 30, "전체": None}
+
+
+def build_daily_work_frames(history: list[dict[str, Any]]) -> tuple[pd.DataFrame, pd.DataFrame]:
+    columns = ["날짜", "설비", "날물명", "구분", "사용량"]
+    df = pd.DataFrame(history).rename(columns={"시작일": "데이터 기준일자"})
+    if df.empty or not {"데이터 기준일자", "설비", "날물명", "반영시각"}.issubset(df.columns):
+        return pd.DataFrame(columns=columns), pd.DataFrame(columns=columns)
+    df["설비"] = df["설비"].map(normalize_machine_name)
+    df["날짜"] = pd.to_datetime(df["데이터 기준일자"], errors="coerce").dt.date
+    df["_sync"] = pd.to_datetime(df["반영시각"], errors="coerce")
+    df = df.dropna(subset=["날짜"])
+    # 같은 생산일을 여러 번 올린 경우 마지막으로 반영한 값만 사용한다.
+    df = df.sort_values("_sync", na_position="first").drop_duplicates(["날짜", "설비", "날물명"], keep="last")
+
+    edge = df[df["설비"].astype(str).str.startswith("엣지")].copy()
+    edge["사용량"] = pd.to_numeric(edge.get("반영 사용량(m)"), errors="coerce").fillna(0)
+
+    def edge_label(row: pd.Series) -> str:
+        blade = str(row["날물명"])
+        if "전면" in blade and "후면" not in blade:
+            return f"{row['설비']} 전면"
+        if "후면" in blade and "전면" not in blade and row["설비"] == "엣지 #6":
+            return f"{row['설비']} 후면"
+        return str(row["설비"])
+
+    edge["구분"] = edge.apply(edge_label, axis=1) if not edge.empty else ""
+    boring = df[df["설비"].astype(str).str.startswith(("수직", "포인트", "런닝", "양면", "신규"))].copy()
+    boring["사용량"] = pd.to_numeric(boring.get("반영 사용량(회)"), errors="coerce").fillna(0)
+    boring["구분"] = boring["설비"]
+    return edge[columns], boring[columns]
+
+
+def format_work_date(value: Any) -> str:
+    return f"{value:%Y-%m-%d} ({WEEKDAY_LABELS[value.weekday()]})"
+
+
+def pivot_daily_work(data: pd.DataFrame) -> pd.DataFrame:
+    pivot = data.pivot_table(index="날짜", columns="구분", values="사용량", aggfunc="sum", fill_value=0)
+    def column_key(label: Any) -> tuple[Any, ...]:
+        machine = str(label).replace(" 전면", "").replace(" 후면", "")
+        number = re.search(r"#(\d+)", machine)
+        return get_machine_sort_key(machine)[0], int(number.group(1)) if number else 999, str(label)
+
+    ordered = sorted(pivot.columns, key=column_key)
+    pivot = pivot[ordered]
+    pivot["합계"] = pivot.sum(axis=1)
+    return pivot.sort_index(ascending=False)
+
+
+def render_daily_work_tab(data: pd.DataFrame, unit: str, number_format: str, empty_message: str, key: str) -> None:
+    if data.empty:
+        st.info(empty_message)
+        return
+    pivot = pivot_daily_work(data)
+    chart = pivot["합계"].sort_index()
+    chart.index = [f"{value:%m-%d}" for value in chart.index]
+    st.caption(f"일별 합계 ({unit})")
+    st.bar_chart(chart.rename(f"합계({unit})"), height=220)
+    table = pivot.copy()
+    table.index = [format_work_date(value) for value in table.index]
+    table.index.name = "생산일"
+    st.dataframe(table.style.format(number_format), use_container_width=True)
+    if key == "boring":
+        detail_date = st.selectbox("날물별 상세 날짜", list(pivot.index), format_func=format_work_date, key="daily_work_detail_date")
+        detail = data[data["날짜"] == detail_date].pivot_table(index="설비", columns="날물명", values="사용량", aggfunc="sum", fill_value=0)
+        detail = detail[sorted(detail.columns, key=get_blade_sort_key)]
+        detail = detail.loc[sorted(detail.index, key=get_machine_sort_key)]
+        detail["합계"] = detail.sum(axis=1)
+        st.dataframe(detail.style.format(number_format), use_container_width=True)
+
+
+@st.dialog("날짜별 작업현황", width="large")
+def show_daily_work_dialog(history: list[dict[str, Any]]) -> None:
+    edge, boring = build_daily_work_frames(history)
+    all_dates = sorted(set(edge["날짜"]) | set(boring["날짜"]))
+    if not all_dates:
+        st.info("아직 반영된 작업 데이터가 없습니다.")
+        return
+    period_label = st.selectbox("기간", list(DAILY_WORK_PERIODS), index=1, key="daily_work_period")
+    period_days = DAILY_WORK_PERIODS[period_label]
+    if period_days:
+        start_date = all_dates[-1] - pd.Timedelta(days=period_days - 1)
+        edge = edge[edge["날짜"] >= start_date]
+        boring = boring[boring["날짜"] >= start_date]
+    st.caption(f"ERP 생산일 기준 · 마지막 데이터 {format_work_date(all_dates[-1])}")
+    edge_tab, boring_tab = st.tabs(["엣지 사용량 (m)", "보링 가공 횟수 (회)"])
+    with edge_tab:
+        render_daily_work_tab(edge, "m", "{:,.1f}", "선택한 기간에 엣지 작업 데이터가 없습니다.", "edge")
+    with boring_tab:
+        render_daily_work_tab(boring, "회", "{:,.0f}", "선택한 기간에 보링 작업 데이터가 없습니다.", "boring")
 
 
 if __name__ == "__main__":
