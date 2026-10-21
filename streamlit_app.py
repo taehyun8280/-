@@ -791,7 +791,7 @@ BORING_MACHINE_CONFIG = [
 
     {"line": "포인트", "machine": "포인트 #3", "installDate": "2026-02-28", "actionStep": ""},
 
-    {"line": "양면", "machine": "신규 #14", "installDate": "", "avg7d": 0},
+    {"line": "신규", "machine": "신규 #14", "installDate": "", "avg7d": 0},
 
     {"line": "양면", "machine": "양면 #26", "installDate": "2026-03-03"},
 
@@ -893,7 +893,7 @@ def build_initial_raw_data() -> list[dict[str, Any]]:
 
     row_id = 1
 
-    line_prefix = {"수직": "V", "포인트": "P", "양면": "D", "런닝": "R"}
+    line_prefix = {"수직": "V", "포인트": "P", "양면": "D", "신규": "D", "런닝": "R"}
 
     for machine_config in BORING_MACHINE_CONFIG:
 
@@ -1424,7 +1424,7 @@ STATUS_STYLES = {
 
 
 
-LINE_FILTER_ORDER = ["엣지", "런닝", "양면", "포인트", "수직"]
+LINE_FILTER_ORDER = ["엣지", "런닝", "양면", "신규", "포인트", "수직"]
 
 LINE_MACHINE_OPTIONS = {
 
@@ -1432,7 +1432,8 @@ LINE_MACHINE_OPTIONS = {
 
     "런닝": ["런닝 #19", "런닝 #20", "런닝 #21", "런닝 #22", "런닝 #23", "런닝 #24"],
 
-    "양면": ["신규 #14", "양면 #26", "양면 #27"],
+    "양면": ["양면 #26", "양면 #27"],
+    "신규": ["신규 #14"],
 
     "포인트": ["포인트 #3"],
 
@@ -1748,7 +1749,7 @@ def get_machine_sort_key(machine: str) -> tuple[int, int]:
 
     normalized_machine = normalize_machine_name(machine)
 
-    line_order = {"엣지": 0, "런닝": 1, "양면": 2, "포인트": 3, "수직": 4}
+    line_order = {"엣지": 0, "런닝": 1, "양면": 2, "신규": 3, "포인트": 4, "수직": 5}
 
     line_name = infer_line_from_machine(normalized_machine)
 
@@ -4386,9 +4387,13 @@ def infer_line_from_machine(machine: str) -> str:
 
         return "런닝"
 
-    if normalized.startswith(("양면", "신규")):
+    if normalized.startswith("양면"):
 
         return "양면"
+
+    if normalized.startswith("신규"):
+
+        return "신규"
 
     if normalized.startswith("포인트"):
 
