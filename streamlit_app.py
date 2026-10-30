@@ -793,6 +793,10 @@ BORING_MACHINE_CONFIG = [
 
     {"line": "신규", "machine": "신규 #14", "installDate": "", "avg7d": 0},
 
+    {"line": "A동", "machine": "A동 #1", "installDate": "", "avg7d": 0},
+
+    {"line": "A동", "machine": "A동 #3", "installDate": "", "avg7d": 0},
+
     {"line": "양면", "machine": "양면 #26", "installDate": "2026-03-03"},
 
     {"line": "양면", "machine": "양면 #27", "installDate": "2026-03-05"},
@@ -893,7 +897,7 @@ def build_initial_raw_data() -> list[dict[str, Any]]:
 
     row_id = 1
 
-    line_prefix = {"수직": "V", "포인트": "P", "양면": "D", "신규": "D", "런닝": "R"}
+    line_prefix = {"수직": "V", "포인트": "P", "양면": "D", "신규": "D", "A동": "A", "런닝": "R"}
 
     for machine_config in BORING_MACHINE_CONFIG:
 
@@ -930,6 +934,10 @@ def build_initial_raw_data() -> list[dict[str, Any]]:
             ):
 
                 standard = 30000
+
+            if machine_config["line"] == "A동" and blade_spec["bladeName"] == "Φ5(관통) 날물":
+
+                standard = 50000
 
             if machine_config["line"] == "포인트" and blade_spec["bladeName"] == "Φ5(관통) 날물":
 
@@ -1332,6 +1340,10 @@ MACHINE_GROUPS = {
 
         "신규 #14",
 
+        "A동 #1",
+
+        "A동 #3",
+
         "양면 #26",
 
         "양면 #27",
@@ -1424,7 +1436,9 @@ STATUS_STYLES = {
 
 
 
-LINE_FILTER_ORDER = ["엣지", "런닝", "양면", "신규", "포인트", "수직"]
+UNCONFIRMED_SKIP_MACHINES = {"신규 #14", "A동 #1", "A동 #3"}
+
+LINE_FILTER_ORDER = ["엣지", "런닝", "양면", "신규", "A동", "포인트", "수직"]
 
 LINE_MACHINE_OPTIONS = {
 
@@ -1434,6 +1448,7 @@ LINE_MACHINE_OPTIONS = {
 
     "양면": ["양면 #26", "양면 #27"],
     "신규": ["신규 #14"],
+    "A동": ["A동 #1", "A동 #3"],
 
     "포인트": ["포인트 #3"],
 
@@ -1713,7 +1728,7 @@ def get_history_blade_list(machine: str, rows: list[dict[str, Any]] | None = Non
 
     normalized_machine = normalize_machine_name(machine)
 
-    if normalized_machine.startswith(("수직", "양면", "신규", "포인트", "런닝")):
+    if normalized_machine.startswith(("수직", "양면", "신규", "A동", "포인트", "런닝")):
 
         return [
 
@@ -1749,7 +1764,7 @@ def get_machine_sort_key(machine: str) -> tuple[int, int]:
 
     normalized_machine = normalize_machine_name(machine)
 
-    line_order = {"엣지": 0, "런닝": 1, "양면": 2, "신규": 3, "포인트": 4, "수직": 5}
+    line_order = {"엣지": 0, "런닝": 1, "양면": 2, "신규": 3, "A동": 4, "포인트": 5, "수직": 6}
 
     line_name = infer_line_from_machine(normalized_machine)
 
@@ -2187,7 +2202,7 @@ def get_completion_standard_label(machine: Any, blade_name: Any) -> str:
         if standard:
             return f"{round(standard):,}m"
 
-    if normalized_machine.startswith(("수직", "포인트", "양면", "신규", "런닝")):
+    if normalized_machine.startswith(("수직", "포인트", "양면", "신규", "A동", "런닝")):
         standard = get_boring_standard(normalized_machine, normalized_blade)
         return f"{standard:,} 회"
 
@@ -3273,7 +3288,7 @@ def normalize_sheet_sync_history(history: list[dict[str, Any]]) -> list[dict[str
         if not machine:
             continue
 
-        is_boring = machine.startswith(("수직", "포인트", "런닝", "양면", "신규"))
+        is_boring = machine.startswith(("수직", "포인트", "런닝", "양면", "신규", "A동"))
         is_edge = machine.startswith("엣지")
 
         if is_boring:
@@ -3470,7 +3485,7 @@ def normalize_last_sheet_sync_details(details: list[dict[str, Any]]) -> list[dic
 
 
 
-        is_boring = machine.startswith(("수직", "포인트", "런닝", "양면", "신규", "?섏쭅", "?ъ씤??", "?곕떇", "?묐㈃"))
+        is_boring = machine.startswith(("수직", "포인트", "런닝", "양면", "신규", "A동", "?섏쭅", "?ъ씤??", "?곕떇", "?묐㈃"))
 
         is_edge = machine.startswith(("엣지", "?ｌ?"))
 
@@ -4277,6 +4292,9 @@ def normalize_machine_name(value: Any) -> str:
 
             return f"수직 #{digits[-1]}"
 
+    a_dong = re.match(r"^NC보링기#([13])\(A동\)$", compact) or re.match(r"^A동#([13])$", compact)
+    if a_dong:
+        return f"A동 #{a_dong[1]}"
     if "A동" in raw or "A동" in compact:
 
         return raw
@@ -4394,6 +4412,10 @@ def infer_line_from_machine(machine: str) -> str:
     if normalized.startswith("신규"):
 
         return "신규"
+
+    if normalized.startswith("A동"):
+
+        return "A동"
 
     if normalized.startswith("포인트"):
 
@@ -5137,7 +5159,7 @@ def get_boring_standard(machine: Any, blade_name: Any) -> int:
 
             return 100000
 
-        if normalized_machine.startswith(("양면", "신규", "수직")):
+        if normalized_machine.startswith(("양면", "신규", "A동", "수직")):
 
             return 50000
 
@@ -5184,7 +5206,7 @@ def build_boring_history_entries_from_dataframe(df: pd.DataFrame, sync_time: str
 
         machine = normalize_machine_name(row.get(machine_col, ""))
 
-        if machine == "신규 #14" and str(row.get("보링매크로상태", "")).startswith("미확인"):
+        if machine in UNCONFIRMED_SKIP_MACHINES and str(row.get("보링매크로상태", "")).startswith("미확인"):
             continue
 
         if not is_boring_machine(machine):
@@ -5807,7 +5829,7 @@ def sync_from_google_sheet(
 
         machine = normalize_machine_name(row[machine_col]) if machine_col else target_machine
 
-        if machine == "신규 #14" and str(row.get("보링매크로상태", "")).startswith("미확인"):
+        if machine in UNCONFIRMED_SKIP_MACHINES and str(row.get("보링매크로상태", "")).startswith("미확인"):
             continue
 
         parsed_usage = parse_numeric_value(row[usage_col]) if usage_col else 0.0
@@ -5824,7 +5846,7 @@ def sync_from_google_sheet(
 
             continue
 
-        if machine.startswith(("수직", "포인트", "런닝", "양면", "신규")):
+        if machine.startswith(("수직", "포인트", "런닝", "양면", "신규", "A동")):
 
             boring_blade_records = []
 
@@ -6038,7 +6060,7 @@ def sync_from_google_sheet(
 
     edge_count = sum(1 for machine in grouped_machines if machine.startswith("엣지"))
 
-    boring_count = sum(1 for machine in grouped_machines if machine.startswith(("수직", "포인트", "런닝", "양면", "신규")))
+    boring_count = sum(1 for machine in grouped_machines if machine.startswith(("수직", "포인트", "런닝", "양면", "신규", "A동")))
 
     if target_machine == "auto":
 
@@ -6094,7 +6116,7 @@ def sync_from_google_sheet(
 
                 "usage_m": round(payload["total"], 3) if machine.startswith("엣지") else "",
 
-                "usage_count": round(payload["usage_count"], 3) if machine.startswith(("수직", "포인트", "런닝", "양면", "신규")) else "",
+                "usage_count": round(payload["usage_count"], 3) if machine.startswith(("수직", "포인트", "런닝", "양면", "신규", "A동")) else "",
 
                 "start_date": start_date or "-",
 
@@ -7868,7 +7890,7 @@ def build_daily_work_frames(history: list[dict[str, Any]]) -> tuple[pd.DataFrame
         return str(row["설비"])
 
     edge["구분"] = edge.apply(edge_label, axis=1) if not edge.empty else ""
-    boring = df[df["설비"].astype(str).str.startswith(("수직", "포인트", "런닝", "양면", "신규"))].copy()
+    boring = df[df["설비"].astype(str).str.startswith(("수직", "포인트", "런닝", "양면", "신규", "A동"))].copy()
     boring["사용량"] = pd.to_numeric(boring.get("반영 사용량(회)"), errors="coerce").fillna(0)
     boring["구분"] = boring["설비"]
     return edge[columns], boring[columns]
