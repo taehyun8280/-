@@ -3232,6 +3232,8 @@ def normalize_sheet_sync_history(history: list[dict[str, Any]]) -> list[dict[str
 
     def infer_legacy_machine(raw_machine: str, raw_blade: str) -> str:
         compact = raw_machine.replace(" ", "")
+        if "A동" in compact:
+            return normalize_machine_name(raw_machine)
         digits = ''.join(ch for ch in compact if ch.isdigit())
         if not digits:
             return normalize_machine_name(raw_machine)
