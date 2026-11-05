@@ -935,9 +935,9 @@ def build_initial_raw_data() -> list[dict[str, Any]]:
 
                 standard = 30000
 
-            if machine_config["line"] == "A동" and blade_spec["bladeName"] == "Φ5(관통) 날물":
+            if machine_config["line"] == "A동":
 
-                standard = 50000
+                standard = 10000 if blade_spec["bladeName"] == "Φ5(관통) 날물" else 5000
 
             if machine_config["line"] == "포인트" and blade_spec["bladeName"] == "Φ5(관통) 날물":
 
@@ -1438,7 +1438,20 @@ STATUS_STYLES = {
 
 UNCONFIRMED_SKIP_MACHINES = {"신규 #14", "A동 #1", "A동 #3"}
 
+# A동은 이 날짜(생산일) 데이터부터 집계한다. 예전 시드·업로드에 섞인 A동 행은 무시한다.
+A_DONG_START_DATE = "2026-10-30"
+
+
+def is_before_a_dong_start(machine: Any, base_date: Any) -> bool:
+    if not str(machine or "").startswith("A동"):
+        return False
+    date_text = normalize_history_date_value(base_date)
+    return not date_text or date_text < A_DONG_START_DATE
+
 LINE_FILTER_ORDER = ["엣지", "런닝", "양면", "신규", "A동", "포인트", "수직"]
+
+# 라인 필터 첫 단계: A동을 뺀 나머지 라인은 B동으로 묶어 세부 라인을 고르게 한다.
+B_DONG_LINES = ["엣지", "런닝", "양면", "신규", "포인트", "수직"]
 
 LINE_MACHINE_OPTIONS = {
 
@@ -3308,6 +3321,9 @@ def normalize_sheet_sync_history(history: list[dict[str, Any]]) -> list[dict[str
         else:
             continue
 
+        if is_before_a_dong_start(machine, start_date):
+            continue
+
         normalized.append({
             "반영시각": sync_at,
             "대상": target,
@@ -5139,6 +5155,10 @@ def get_boring_standard(machine: Any, blade_name: Any) -> int:
 
     normalized_blade = normalize_boring_blade_name(blade_name)
 
+    if normalized_machine.startswith("A동"):
+
+        return 10000 if normalized_blade == "Φ5(관통) 날물" else 5000
+
     if normalized_machine in RUNNING_23_24_30000_MACHINES and normalized_blade in RUNNING_23_24_30000_BLADES:
 
         return 30000
@@ -5209,6 +5229,9 @@ def build_boring_history_entries_from_dataframe(df: pd.DataFrame, sync_time: str
         machine = normalize_machine_name(row.get(machine_col, ""))
 
         if machine in UNCONFIRMED_SKIP_MACHINES and str(row.get("보링매크로상태", "")).startswith("미확인"):
+            continue
+
+        if is_before_a_dong_start(machine, row.get(date_col, "") if date_col else ""):
             continue
 
         if not is_boring_machine(machine):
@@ -5832,6 +5855,9 @@ def sync_from_google_sheet(
         machine = normalize_machine_name(row[machine_col]) if machine_col else target_machine
 
         if machine in UNCONFIRMED_SKIP_MACHINES and str(row.get("보링매크로상태", "")).startswith("미확인"):
+            continue
+
+        if is_before_a_dong_start(machine, row[date_col] if date_col else ""):
             continue
 
         parsed_usage = parse_numeric_value(row[usage_col]) if usage_col else 0.0
@@ -7433,29 +7459,48 @@ def main() -> None:
 
         available_lines = [line for line in LINE_FILTER_ORDER if any(row["line"] == line for row in enriched)]
 
-        line_filter_options = ["전체", *available_lines]
-        current_line_filter = st.session_state.get("line_filter_toggle", "all")
-        current_line_label = "전체" if current_line_filter == "all" else str(current_line_filter)
-        if current_line_label not in line_filter_options:
-            current_line_label = "전체"
+        b_dong_lines = [line for line in B_DONG_LINES if line in available_lines]
+        group_options = ["전체", *(["B동"] if b_dong_lines else []), *(["A동"] if "A동" in available_lines else [])]
+        current_line_filter = str(st.session_state.get("line_filter_toggle", "all"))
+        if current_line_filter == "all":
+            current_group = "전체"
+        elif current_line_filter == "B동" or current_line_filter in B_DONG_LINES:
+            current_group = "B동"
+        else:
+            current_group = current_line_filter
+        if current_group not in group_options:
+            current_group = "전체"
+            current_line_filter = "all"
             st.session_state.line_filter_toggle = "all"
             st.session_state.line_machine_filter = "전체"
-        if st.session_state.get("line_filter_choice") not in line_filter_options:
-            st.session_state.line_filter_choice = current_line_label
+        if st.session_state.get("line_group_choice") not in group_options:
+            st.session_state.line_group_choice = current_group
 
-        selected_line_label = st.radio(
+        selected_group = st.radio(
             "라인",
-            line_filter_options,
+            group_options,
             horizontal=True,
-            key="line_filter_choice",
+            key="line_group_choice",
         )
-        active_line_filter = "all" if selected_line_label == "전체" else selected_line_label
+        if selected_group == "B동":
+            sub_line_options = ["전체", *b_dong_lines]
+            if st.session_state.get("line_filter_choice") not in sub_line_options:
+                st.session_state.line_filter_choice = current_line_filter if current_line_filter in b_dong_lines else "전체"
+            selected_line_label = st.radio(
+                "B동 세부 라인",
+                sub_line_options,
+                horizontal=True,
+                key="line_filter_choice",
+            )
+            active_line_filter = "B동" if selected_line_label == "전체" else selected_line_label
+        else:
+            active_line_filter = "all" if selected_group == "전체" else selected_group
         if active_line_filter != st.session_state.get("line_filter_toggle", "all"):
             st.session_state.pop("normal_replacement_prompt", None)
             st.session_state.line_filter_toggle = active_line_filter
             st.session_state.line_machine_filter = "전체"
 
-        if active_line_filter != "all":
+        if active_line_filter in LINE_MACHINE_OPTIONS:
 
             machine_options = ["전체", *[machine for machine in LINE_MACHINE_OPTIONS.get(active_line_filter, []) if any(row["machine"] == machine for row in enriched)]]
 
@@ -7481,13 +7526,15 @@ def main() -> None:
 
             for row in filtered
 
-            if active_line_filter == "all" or row["line"] == active_line_filter
+            if active_line_filter == "all"
+            or row["line"] == active_line_filter
+            or (active_line_filter == "B동" and row["line"] in B_DONG_LINES)
 
         ]
 
         active_machine_filter = st.session_state.get("line_machine_filter", "전체")
 
-        if active_line_filter != "all" and active_machine_filter != "전체":
+        if active_line_filter in LINE_MACHINE_OPTIONS and active_machine_filter != "전체":
 
             filtered = [row for row in filtered if row["machine"] == active_machine_filter]
 
@@ -7758,11 +7805,11 @@ def main() -> None:
 
             history_df = history_df[
 
-                history_df["설비"].apply(lambda machine: (active_line_filter == "all" or infer_line_from_machine(machine) == active_line_filter))
+                history_df["설비"].apply(lambda machine: (active_line_filter == "all" or infer_line_from_machine(machine) == active_line_filter or (active_line_filter == "B동" and infer_line_from_machine(machine) in B_DONG_LINES)))
 
             ]
 
-            if active_line_filter != "all" and active_machine_filter != "전체":
+            if active_line_filter in LINE_MACHINE_OPTIONS and active_machine_filter != "전체":
 
                 history_df = history_df[history_df["설비"] == active_machine_filter]
 
