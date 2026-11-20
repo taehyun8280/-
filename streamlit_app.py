@@ -1439,7 +1439,7 @@ STATUS_STYLES = {
 UNCONFIRMED_SKIP_MACHINES = {"신규 #14", "A동 #1", "A동 #3"}
 
 # A동은 이 날짜(생산일) 데이터부터 집계한다. 예전 시드·업로드에 섞인 A동 행은 무시한다.
-A_DONG_START_DATE = "2026-10-30"
+A_DONG_START_DATE = "2026-11-03"
 
 
 def is_before_a_dong_start(machine: Any, base_date: Any) -> bool:
@@ -3994,7 +3994,15 @@ def reconcile_boring_usage_from_history(data: list[dict[str, Any]], history: lis
     noted_completion_targets = get_noted_completion_targets()
     latest_noted_completion_at = get_latest_noted_completion_at_by_target()
 
-    for entry in normalize_sheet_sync_history(history):
+    history_rows = normalize_sheet_sync_history(history)
+    # A동은 같은 기준일자가 두 번(ERP 업로드, 대시보드 재계산) 기록되므로 마지막 반영분만 합산한다.
+    latest_a_dong_sync: dict[tuple[str, str, str], str] = {}
+    for entry in history_rows:
+        machine = str(entry.get("설비", "")).strip()
+        if machine.startswith("A동"):
+            day_key = (machine, normalize_boring_blade_name(str(entry.get("날물명", "")).strip()), str(entry.get("데이터 기준일자", "")).strip())
+            latest_a_dong_sync[day_key] = max(latest_a_dong_sync.get(day_key, ""), str(entry.get("반영시각", "")).strip())
+    for entry in history_rows:
 
         sync_at = str(entry.get("\ubc18\uc601\uc2dc\uac01", "")).strip()
 
@@ -4010,7 +4018,7 @@ def reconcile_boring_usage_from_history(data: list[dict[str, Any]], history: lis
 
             continue
 
-        if not machine.startswith(("\uc218\uc9c1", "\ud3ec\uc778\ud2b8", "\ub7f0\ub2dd", "\uc591\uba74", "\uc2e0\uaddc")):
+        if not machine.startswith(("\uc218\uc9c1", "\ud3ec\uc778\ud2b8", "\ub7f0\ub2dd", "\uc591\uba74", "\uc2e0\uaddc", "A\ub3d9")):
 
             continue
 
@@ -4026,6 +4034,8 @@ def reconcile_boring_usage_from_history(data: list[dict[str, Any]], history: lis
 
         start_date = str(entry.get("\ub370\uc774\ud130 \uae30\uc900\uc77c\uc790", entry.get("\uc2dc\uc791\uc77c", ""))).strip()
 
+        if machine.startswith("A동") and sync_at != latest_a_dong_sync.get((machine, blade_name, start_date), sync_at):
+            continue
         if not blade_name:
 
             continue
@@ -4048,7 +4058,7 @@ def reconcile_boring_usage_from_history(data: list[dict[str, Any]], history: lis
 
         machine = str(item.get("machine", "")).strip()
 
-        if not machine.startswith(("\uc218\uc9c1", "\ud3ec\uc778\ud2b8", "\ub7f0\ub2dd", "\uc591\uba74", "\uc2e0\uaddc")):
+        if not machine.startswith(("\uc218\uc9c1", "\ud3ec\uc778\ud2b8", "\ub7f0\ub2dd", "\uc591\uba74", "\uc2e0\uaddc", "A\ub3d9")):
 
             next_rows.append(item)
 
